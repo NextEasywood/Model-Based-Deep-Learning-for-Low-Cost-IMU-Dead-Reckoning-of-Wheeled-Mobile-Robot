@@ -146,23 +146,23 @@ class LearningBasedProcessing:
             writer.add_scalar('loss/val', loss.item(), epoch)
             return best_loss
 
-        # n_pre_epochs = 2000
-        # pre_loss_epoch_train = torch.zeros(n_pre_epochs)
-        # for epoch in range(1, n_pre_epochs + 1):
-        #     loss_epoch = self.pre_loop_train(dataloader, optimizer, criterion)
-        #     pre_loss_epoch_train[epoch-1] = loss_epoch
-        #     write(epoch, loss_epoch)
-        #     scheduler.step(epoch)
-        #     if epoch % 50 == 0:
-        #         # loss = self.loop_val(dataset_val, criterion)
-        #         loss = self.pre_loop_val(dataloader, criterion)
-        #         write_time(epoch, start_time)
-        #         best_loss = write_val(loss, best_loss)
-        #         start_time = time.time()
-        # mondict = {
-        #     'pre_loss_epoch_train': pre_loss_epoch_train.cpu(),
-        # }
-        # pdump(mondict, self.address, 'pre_loss_epoch_train.p')
+        n_pre_epochs = 4000
+        pre_loss_epoch_train = torch.zeros(n_pre_epochs)
+        for epoch in range(1, n_pre_epochs + 1):
+            loss_epoch = self.pre_loop_train(dataloader, optimizer, criterion)
+            pre_loss_epoch_train[epoch-1] = loss_epoch
+            write(epoch, loss_epoch)
+            scheduler.step(epoch)
+            if epoch % 50 == 0:
+                # loss = self.loop_val(dataset_val, criterion)
+                loss = self.pre_loop_val(dataloader, criterion)
+                write_time(epoch, start_time)
+                best_loss = write_val(loss, best_loss)
+                start_time = time.time()
+        mondict = {
+            'pre_loss_epoch_train': pre_loss_epoch_train.cpu(),
+        }
+        pdump(mondict, self.address, 'pre_loss_epoch_train.p')
         # training loop !
         loss_epoch_train = torch.zeros(n_epochs)
         for epoch in range(1, n_epochs + 1):

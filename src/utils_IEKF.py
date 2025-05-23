@@ -239,28 +239,54 @@ class IEKF:
         return P_new
 
     def update(self, Rot, v, p, b_omega, b_acc, Rot_c_i, t_c_i, P, u, i, measurement_cov):
-        # orientation of body frame
+        # # orientation of body frame
+        # Rot_body = Rot.bmm(Rot_c_i).double()
+        # # velocity in imu frame
+        # v_imu = bmtv(Rot, v).double()
+        # omega = (u[:, :3] - b_omega).double()
+        # # velocity in body frame
+        # v_body = bmtv(Rot_c_i, v_imu).double() + bmv(self.bskew(t_c_i), omega).double()
+        # # v_body = Rot_c_i.t().mv(v_imu) + self.bskew(t_c_i).mv(omega)
+        # Omega = self.bskew(omega).double()
+        # # Jacobian in car frame
+        # H_v_imu = bmtm(Rot_c_i, self.bskew(v_imu)).double()
+        # H_t_c_i = self.bskew(t_c_i).double()
+
+        # N0 = u.shape[0]
+        # H = P.new_zeros(N0, 2, self.P_dim).double()
+        # H[:, :, 3:6] = Rot_body.transpose(1, 2)[:, 1:]
+        # H[:, :, 15:18] = H_v_imu[:, 1:]
+        # H[:, :, 9:12] = H_t_c_i[:, 1:]
+        # H[:, :, 18:21] = -Omega[:, 1:]
+        # r = - v_body[:, 1:]
+        # R = self.bdiag(measurement_cov)
         Rot_body = Rot.bmm(Rot_c_i).double()
-        # velocity in imu frame
+
         v_imu = bmtv(Rot, v).double()
         omega = (u[:, :3] - b_omega).double()
-        # velocity in body frame
-        v_body = bmtv(Rot_c_i, v_imu).double() + bmv(self.bskew(t_c_i), omega).double()
-        # v_body = Rot_c_i.t().mv(v_imu) + self.bskew(t_c_i).mv(omega)
+
         Omega = self.bskew(omega).double()
+        v_body = bmtv(Rot_c_i, v_imu + bmv(Omega, t_c_i).double()).double()
+
         # Jacobian in car frame
-        H_v_imu = bmtm(Rot_c_i, self.bskew(v_imu)).double()
-        H_t_c_i = self.bskew(t_c_i).double()
+        H_v_imu = bmtm(Rot_c_i, self.bskew(v_imu + bmv(Omega, t_c_i))).double()
+        H_v_imu = H_v_imu.bmm(Rot_c_i)
+        H_t_c_i = bmtm(Rot_c_i,self.bskew(t_c_i)).double()
+
+        H_R_imu1 = bmtm(Rot, self.bskew(v)).double()
+        H_R_imu = bmtm(Rot_c_i, H_R_imu1).double()
+        H_R_imu = H_R_imu.bmm(Rot)
 
         N0 = u.shape[0]
         H = P.new_zeros(N0, 2, self.P_dim).double()
+        H[:, :, :3] = H_R_imu[:,1:]
         H[:, :, 3:6] = Rot_body.transpose(1, 2)[:, 1:]
         H[:, :, 15:18] = H_v_imu[:, 1:]
         H[:, :, 9:12] = H_t_c_i[:, 1:]
         H[:, :, 18:21] = -Omega[:, 1:]
         r = - v_body[:, 1:]
         R = self.bdiag(measurement_cov)
-
+        
         Rot_up, v_up, p_up, b_omega_up, b_acc_up, Rot_c_i_up, t_c_i_up, P_up = \
             self.state_and_cov_update(Rot, v, p, b_omega, b_acc, Rot_c_i, t_c_i, P, H, r, R)
         return Rot_up, v_up, p_up, b_omega_up, b_acc_up, Rot_c_i_up, t_c_i_up, P_up
